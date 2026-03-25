@@ -1,0 +1,71 @@
+# Triangle vertices
+P1 = (20, 10)
+P2 = (50, 40)
+P3 = (10, 60)
+vertices = [P1, P2, P3]
+
+WIDTH, HEIGHT = 80, 80
+FILL_COLOR = 1
+
+# Initialize framebuffer with 0 (background)
+framebuffer = [[0 for _ in range(WIDTH)] for _ in range(HEIGHT)]
+
+class Edge:
+    def __init__(self, x1, y1, x2, y2):
+        if y1 == y2:  # ignore horizontal edges
+            self.valid = False
+            return
+        if y1 < y2:
+            self.y_min, self.y_max = y1, y2
+            self.x = x1
+            self.inv_slope = (x2 - x1) / (y2 - y1)
+        else:
+            self.y_min, self.y_max = y2, y1
+            self.x = x2
+            self.inv_slope = (x1 - x2) / (y1 - y2)
+        self.valid = True
+
+# Build Edge Table (ET)
+ET = {}
+for i in range(len(vertices)):
+    x1, y1 = vertices[i]
+    x2, y2 = vertices[(i + 1) % len(vertices)]
+    e = Edge(x1, y1, x2, y2)
+    if not e.valid:
+        continue
+    ET.setdefault(e.y_min, []).append(e)
+
+scan = min(y for (_, y) in vertices)
+scan_max = max(y for (_, y) in vertices)
+AET = []
+
+while scan <= scan_max:
+    # 1. Add edges starting at this scan line
+    if scan in ET:
+        AET.extend(ET[scan])
+
+    # 2. Remove finished edges
+    AET = [e for e in AET if scan < e.y_max]
+
+    # 3. Sort by current x
+    AET.sort(key=lambda e: e.x)
+
+    # 4. Fill spans
+    for i in range(0, len(AET), 2):
+        x_start = int(round(AET[i].x))
+        x_end = int(round(AET[i+1].x))
+        for x in range(x_start, x_end + 1):
+            if 0 <= x < WIDTH and 0 <= scan < HEIGHT:
+                framebuffer[scan][x] = FILL_COLOR
+
+    # 5. Increment x for all edges
+    for e in AET:
+        e.x += e.inv_slope
+
+    scan += 1
+
+# Simple text visualization (optional)
+for y in range(HEIGHT):
+    row = ''.join('#' if framebuffer[y][x] == FILL_COLOR else '.'
+                  for x in range(WIDTH))
+    print(row)
